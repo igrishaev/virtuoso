@@ -2,9 +2,14 @@
   (:refer-clojure :exclude [future pmap])
   (:import
    clojure.lang.RT
+   java.util.Iterator
    java.util.concurrent.Callable
    java.util.concurrent.Executors
    java.util.concurrent.ExecutorService))
+
+
+(defmacro deref-all [futs]
+  `(mapv deref ~futs))
 
 
 (defmacro with-executor [[bind] & body]
@@ -14,7 +19,7 @@
 
 (defmacro future-via
   {:style/indent 1}
-  [executor & body]
+  [[executor] & body]
   `(.submit ~executor
             (reify Callable
               (call [this#]
@@ -23,62 +28,22 @@
 
 (defmacro future [& body]
   `(with-executor [executor#]
-     (future-via executor#
+     (future-via [executor#]
        ~@body)))
 
-#_
-(with-executor [exe]
-  (with-future exe
-    (+ 1 2 3)))
 
-
-#_
-(let [f (binding-conveyor-fn f)
-      fut (.submit clojure.lang.Agent/soloExecutor ^Callable f)]
-  (reify
-    clojure.lang.IDeref
-    (deref [_] (deref-future fut))
-    clojure.lang.IBlockingDeref
-    (deref
-        [_ timeout-ms timeout-val]
-      (deref-future fut timeout-ms timeout-val))
-    clojure.lang.IPending
-    (isRealized [_] (.isDone fut))
-    java.util.concurrent.Future
-    (get [_] (.get fut))
-    (get [_ timeout unit] (.get fut timeout unit))
-    (isCancelled [_] (.isCancelled fut))
-    (isDone [_] (.isDone fut))
-    (cancel [_ interrupt?] (.cancel fut interrupt?))))
-
-
-(defmacro parallel
+(defmacro futures
   [& forms]
-  (let [exe-sym (gensym "exe")]
+  (let [exe-sym (gensym "executor")]
     `(with-executor [~exe-sym]
        [~@(for [form forms]
-            `(future-via ~exe-sym
+            `(future-via [~exe-sym]
                ~form))])))
 
 
+(defmacro futures! [& forms]
+  `(deref-all (futures ~@forms)))
 
-#_
-(parallel
- (do-this ...)
- (do-that ...)
- (do-some ...))
-
-
-
-
-
-#_
-(each [[item coll] & body]
-      ...)
-
-#_
-(do-each [item coll]
-  ...)
 
 (defmacro thread [& body]
   `(.start (Thread/ofVirtual)
@@ -87,31 +52,52 @@
                ~@body))))
 
 
+(defn ->iter ^Iterator [coll]
+  (RT/iter coll))
+
+
+(defn has-next? [^Iterator iter]
+  (.hasNext iter))
+
+
+(defn get-next [^Iterator iter]
+  (.next iter))
+
+
 (defn pmap
 
   ([func coll]
    (with-executor [executor]
-     (let [iter (RT/iter coll)]
+     (let [iter (->iter coll)]
        (loop [acc! (transient [])]
-         (if (.hasNext iter)
-           (let [x (.next iter)
-                 f (with-future executor
+         (if (has-next? iter)
+           (let [x (get-next iter)
+                 f (future-via [executor]
                      (func x))]
              (recur (conj! acc! f)))
            (persistent! acc!))))))
 
   ([func coll & colls]
-   #_
-   (let [iters [(RT/iter coll)]]
-     (loop [acc! (transient [])]
-       (if (.hasNext iter)
-         (let [x (.next iter)]
-           (recur (conj! acc! (future (func x)))))
-         (persistent! acc!))))
+   (let [iters (-> []
+                   (conj (->iter coll))
+                   (into (map ->iter colls)))]
+     (with-executor [executor]
+       (loop [acc! (transient [])]
+         (if (every? has-next? iters)
+           (let [xs (mapv get-next iters)
+                 f (future-via [executor]
+                     (apply func xs))]
+             (recur (conj! acc! f)))
+           (persistent! acc!)))))))
 
-   )
 
-  )
+(defn pmap!
+
+  ([func coll]
+   (deref-all (pmap func coll)))
+
+  ([func coll & colls]
+   (deref-all (apply pmap func coll colls))))
 
 
 (defmacro each
@@ -120,6 +106,7 @@
   `(pmap (fn [~item] ~@body) ~coll))
 
 
-#_
-(each [x [1 2 3 4 5]]
-  (+ x x))
+(defmacro each!
+  {:style/indent 1}
+  [[item coll] & body]
+  `(deref-all (each [~item ~coll] ~@body)))
