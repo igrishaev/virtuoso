@@ -12,7 +12,8 @@
      ~@body))
 
 
-(defmacro with-future
+(defmacro future-via
+  {:style/indent 1}
   [executor & body]
   `(.submit ~executor
             (reify Callable
@@ -22,7 +23,7 @@
 
 (defmacro future [& body]
   `(with-executor [executor#]
-     (with-future executor#
+     (future-via executor#
        ~@body)))
 
 #_
@@ -51,25 +52,29 @@
     (cancel [_ interrupt?] (.cancel fut interrupt?))))
 
 
-(defmacro with-parallel [& forms]
+(defmacro parallel
+  [& forms]
   (let [exe-sym (gensym "exe")]
     `(with-executor [~exe-sym]
        [~@(for [form forms]
-            `(with-future ~exe-sym
+            `(future-via ~exe-sym
                ~form))])))
 
 
 
 #_
-(with-parallel
-  (do-this ...)
-  (do-that ...)
-  (do-some ...))
+(parallel
+ (do-this ...)
+ (do-that ...)
+ (do-some ...))
+
+
+
 
 
 #_
-(with-each [[item coll] & body]
-  ...)
+(each [[item coll] & body]
+      ...)
 
 #_
 (do-each [item coll]
@@ -107,3 +112,14 @@
    )
 
   )
+
+
+(defmacro each
+  {:style/indent 1}
+  [[item coll] & body]
+  `(pmap (fn [~item] ~@body) ~coll))
+
+
+#_
+(each [x [1 2 3 4 5]]
+  (+ x x))
