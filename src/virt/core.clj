@@ -53,6 +53,30 @@
     (cancel [_ interrupt?] (.cancel fut interrupt?))))
 
 
+(defmacro with-parallel [& forms]
+  (let [exe-sym (gensym "exe")]
+    `(with-executor [~exe-sym]
+       [~@(for [form forms]
+            `(with-future ~exe-sym
+               ~form))])))
+
+
+
+#_
+(with-parallel
+  (do-this ...)
+  (do-that ...)
+  (do-some ...))
+
+
+#_
+(with-each [[item coll] & body]
+  ...)
+
+#_
+(do-each [item coll]
+  ...)
+
 (defmacro thread [& body]
   `(.start (Thread/ofVirtual)
            (reify Runnable
