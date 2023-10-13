@@ -64,6 +64,18 @@
   (.next iter))
 
 
+(defn pmap-multi [func colls]
+  (let [iters (mapv ->iter colls)]
+    (with-executor [executor]
+      (loop [acc! (transient [])]
+        (if (every? has-next? iters)
+          (let [xs (mapv get-next iters)
+                f (future-via [executor]
+                    (apply func xs))]
+            (recur (conj! acc! f)))
+          (persistent! acc!))))))
+
+
 (defn pmap
 
   ([func coll]
@@ -78,17 +90,7 @@
            (persistent! acc!))))))
 
   ([func coll & colls]
-   (let [iters (-> []
-                   (conj (->iter coll))
-                   (into (map ->iter colls)))]
-     (with-executor [executor]
-       (loop [acc! (transient [])]
-         (if (every? has-next? iters)
-           (let [xs (mapv get-next iters)
-                 f (future-via [executor]
-                     (apply func xs))]
-             (recur (conj! acc! f)))
-           (persistent! acc!)))))))
+   (pmap-multi func (cons coll colls))))
 
 
 (defn pmap!
@@ -97,7 +99,7 @@
    (deref-all (pmap func coll)))
 
   ([func coll & colls]
-   (deref-all (apply pmap func coll colls))))
+   (deref-all (pmap-multi func (cons coll colls)))))
 
 
 (defmacro each
