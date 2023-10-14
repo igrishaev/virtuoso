@@ -1,6 +1,6 @@
 (ns bench
   (:require
-   [virt.core :as virt]
+   [virtuoso.core :as v]
    [clj-http.client :as client]
    [cheshire.core :as json]))
 
@@ -12,17 +12,36 @@
       :body))
 
 
-#_
-(time
- (count
-  (pmap download (repeat 200 URL))))
+(def URLS
+  (vec (repeat 100 URL)))
+
 
 #_
 (time
  (count
-  (virt/pmap! download (repeat 200 URL))))
+  (pmap download URLS)))
 
 #_
 (time
  (count
-  (map download (repeat 200 URL))))
+  (v/pmap! download URLS)))
+
+#_
+(time
+ (count
+  (map download URLS)))
+
+
+(defn task [_]
+  (Thread/sleep 500)
+  42)
+
+
+#_
+(time (count (pmap task (repeat 50 nil))))
+
+#_
+(time (count (v/pmap! task (repeat 50 nil))))
+
+#_
+(time (count (map task (repeat 50 nil))))

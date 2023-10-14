@@ -1,4 +1,4 @@
-(ns virt.core
+(ns virtuoso.core
   (:refer-clojure :exclude [future pmap])
   (:import
    clojure.lang.RT
@@ -98,7 +98,7 @@
   (.next iter))
 
 
-(defn pmap-multi [func colls]
+(defn- pmap-multi [func colls]
   (let [iters (mapv ->iter colls)]
     (with-executor [executor]
       (loop [acc! (transient [])]
