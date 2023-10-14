@@ -2,7 +2,10 @@
 
 [virtual-threads]: https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html
 
-A small wrapper on top of [virtual threads][virtual-threads] introduced in Java 21.
+A small wrapper on top of [virtual threads][virtual-threads] introduced in Java
+21.
+
+## About
 
 ## Installation
 
@@ -19,6 +22,16 @@ Deps/CLI
 ~~~
 
 ## Usage
+
+- with-executor
+
+- future, future-via, futures(!)
+
+- thread
+
+- pmap(!)
+
+- each(!)
 
 ## License
 
