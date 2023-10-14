@@ -1,32 +1,24 @@
-# virt
+# Virtuoso
 
-FIXME: description
+[virtual-threads]: https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html
+
+A small wrapper on top of [virtual threads][virtual-threads] introduced in Java 21.
 
 ## Installation
 
-Download from http://example.com/FIXME.
+Lein
+
+~~~clojure
+[com.github.igrishaev/virtuoso "0.1.0"]
+~~~
+
+Deps/CLI
+
+~~~clojure
+{com.github.igrishaev/virtuoso {:mvn/version "0.1.0"}}
+~~~
 
 ## Usage
-
-FIXME: explanation
-
-    $ java -jar virt-0.1.0-standalone.jar [args]
-
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
 
 ## License
 
