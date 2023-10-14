@@ -1,4 +1,4 @@
-(defproject virt "0.1.0-SNAPSHOT"
+(defproject com.github.igrishaev/virtuoso "0.1.0-SNAPSHOT"
 
   :java-cmd
   "/Users/ivan/work/jdk-21.jdk/Contents/Home/bin/java"
