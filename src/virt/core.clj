@@ -4,8 +4,8 @@
    clojure.lang.RT
    java.util.Iterator
    java.util.concurrent.Callable
-   java.util.concurrent.Executors
-   java.util.concurrent.ExecutorService))
+   java.util.concurrent.ExecutorService
+   java.util.concurrent.Executors))
 
 
 (defn deref-all
@@ -20,7 +20,7 @@
   "
   Run a block of code with a new instance of a virtual task executor
   bound to the `bind` symbol. The executor gets closed when exiting
-  the macro. It guarantees that all the submitted tasks will be completed
+  the macro. Guarantees that all the submitted tasks will be completed
   before closing the executor.
   "
   [[bind] & body]
@@ -55,7 +55,7 @@
 (defmacro futures
   "
   Wrap each form into a future bound to a temporal virtual
-  executor. Return a vector of futures. Closes the pool afterwards
+  executor. Return a vector of futures. Close the pool afterwards
   blocking until all the tasks are complete.
   "
   [& forms]
@@ -70,7 +70,7 @@
   "
   Like `futures` but dereference all the futures. Return
   a vector of dereferenced values. Should any task fail,
-  it would trigger an exception."
+  trigger an exception."
   [& forms]
   `(deref-all (futures ~@forms)))
 
@@ -112,9 +112,9 @@
 
 (defn pmap
   "
-  Like `clojure.core/pmap` but wraps each step into a future
-  bound to a temporal virtual executor. Returns a vector of
-  futures. Closes the pool afterwards which leads to blocking
+  Like `clojure.core/pmap` but wrap each step into a future
+  bound to a temporal virtual executor. Return a vector of
+  futures. Close the pool afterwards which leads to blocking
   until all the tasks are completed.
   "
 
@@ -135,6 +135,11 @@
 
 (defn pmap!
 
+  "
+  Like `pmap` but dereference all the futures. Return a vector
+  of values. Should any task fail, throw an exception.
+  "
+
   ([func coll]
    (deref-all (pmap func coll)))
 
@@ -143,12 +148,21 @@
 
 
 (defmacro each
+  "
+  Run a block of code for each collection's item. The item
+  is bound to the `item` symbol. Return a vector of futures
+  each bound to a temporal virtual executor.
+  "
   {:style/indent 1}
   [[item coll] & body]
   `(pmap (fn [~item] ~@body) ~coll))
 
 
 (defmacro each!
+  "
+  Like `each` but dereference all the futures. Return a vector
+  of values. Should any task fail, throw an exception.
+  "
   {:style/indent 1}
   [[item coll] & body]
   `(deref-all (each [~item ~coll] ~@body)))
