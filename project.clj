@@ -1,25 +1,40 @@
 (defproject com.github.igrishaev/virtuoso "0.1.0-SNAPSHOT"
 
   :java-cmd
-  "/Users/ivan/work/jdk-21.jdk/Contents/Home/bin/java"
+  ~(System/getenv "JDK21")
 
   :description
-  "FIXME: write description"
+  "A small wrapper on top of Java 21 virtual threads"
 
   :url
-  "http://example.com/FIXME"
+  "https://github.com/igrishaev/virtuoso"
+
+  :deploy-repositories
+  {"releases" {:url "https://repo.clojars.org" :creds :gpg}}
 
   :license
   {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
    :url "https://www.eclipse.org/legal/epl-2.0/"}
 
+  :release-tasks
+  [["vcs" "assert-committed"]
+   ["test"]
+   ["change" "version" "leiningen.release/bump-version" "release"]
+   ["vcs" "commit"]
+   ["vcs" "tag" "--no-sign"]
+   ["deploy"]
+   ["change" "version" "leiningen.release/bump-version"]
+   ["vcs" "commit"]
+   ["vcs" "push"]]
+
   :dependencies
-  [[org.clojure/clojure "1.11.1"]]
+  []
 
   :profiles
   {:dev
    {:source-paths ["dev/src"]
-    :dependencies [[clj-http "3.12.0"]
+    :dependencies [[org.clojure/clojure "1.11.1"]
+                   [clj-http "3.12.0"]
                    [cheshire "5.10.0"]]}
    :uberjar
    {:aot :all
