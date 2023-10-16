@@ -138,6 +138,37 @@ object but not the result.
 
 ### pmap(!)
 
+The `pmap` function acts like the standard `clojure.core/pmap`: it takes a
+function an a collection (or more collections). It opens a new virtual executor
+and submits each calculation step to the executor. The result is a vector of
+futures. The function closes the executor afterwars which leads to blocking
+untill all the tasks are completed.
+
+~~~clojure
+(let [futs
+      (v/pmap get-user-from-api [1 2 3])]
+  (mapv deref futs))
+~~~
+
+Or:
+
+~~~clojure
+(let [futs
+      (v/pmap get-some-entity                ;; assuming it accepts id and status
+              [1 2 3]                        ;; ids
+              ["active" "pending" "deleted"] ;; statuses
+              )]
+  (mapv deref futs))
+~~~
+
+The `pmap!` version of this function dereferences all the results for you with
+no exception handling:
+
+~~~clojure
+(v/pmap! get-user-from-api [1 2 3])
+;; [{:id 1...}, {:id 2...}, {:id 3...}]
+~~~
+
 ### each(!)
 
 ## Measurements
