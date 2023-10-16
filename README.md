@@ -25,9 +25,9 @@ A small wrapper on top of [virtual threads][virtual-threads] introduced in Java
 ## About
 
 The recent release of Java 21 introduced virtual threads to the scene. It's a
-nice feature that allows you to run imperative code such as it has been written
-in an asynchronous way. This library is a naive attempt to gain something from
-the virtual threads.
+nice feature that allows you to run imperative code, such as it was written in
+an asynchronous way. This library is a naive attempt to gain something from the
+virtual threads.
 
 ## Installation
 
@@ -62,17 +62,17 @@ The `with-executor` wraps a block of code binding a new instance of
   (do-that ...))
 ~~~
 
-In the example above, the executor is bound to the `exe` symbol. Exiting from
-the macro will trigger closing the executor which, in turn, leads to blocking
-untill all the tasks sent to it are complete. The `with-executor` macro,
-although might be used on your code, is rather a building material for other
-macros.
+Above, the executor is bound to the `exe` symbol. Exiting from the macro will
+trigger closing the executor, which, in turn, leads to blocking until all the
+tasks sent to it are complete. The `with-executor` macro, although it might be
+used on your code, is instead a building material for other macros.
+
 
 ### future-via
 
-The `future-via` macro spaws a new virtual future through a previously open
-executor. You can spawn as many futures you want due to the nature of virtual
-threads: there might be millions of them.
+The `future-via` macro spawns a new virtual future through a previously open
+executor. You can generate as many futures as you want due to the nature of
+virtual threads: there might be millions of them.
 
 ~~~clojure
 (v/with-executor [exe]
@@ -85,7 +85,7 @@ threads: there might be millions of them.
 
 Virtual futures give performance gain only when the code they wrap makes
 IO. Instead, if you run CPU-based computations in virtual threads, the
-performance suffers due to continuations and moving the stacktrace from the
+performance suffers due to continuations and moving the stack trace from the
 stack to the heap and back.
 
 ### futures(!)
@@ -104,13 +104,13 @@ a vector of `Future` objects. To obtain values, pass the result through
   (mapv deref futs))
 ~~~
 
-Right before you exit the macro, it closes the executor which leads to blicking
+Right before you exit the macro, it closes the executor, which leads to blicking
 until all the tasks are complete.
 
-Pay attention that `deref`-ing a future that failed leads to throwing an
-exception. That's why the macoro doesn't dereference the futures for you as it
-doens't know how to handle errors. But if you don't care about exception
-handling, there a `futures!` macro that does it for you:
+Pay attention that `deref`-ing a failed future leads to throwing an
+exception. That's why the macro doesn't dereference the futures for you, as it
+doesn't know how to handle errors. But if you don't care about exception
+handling, there is a `futures!` macro that does it for you:
 
 ~~~clojure
 (v/futures!
@@ -123,10 +123,10 @@ The result will be vector of dereferenced values.
 
 ### thread
 
-The `thread` macro just spawns and starts a new virtual thread using the
+The `thread` macro spawns and starts a new virtual thread using the
 `(Thread/ofVirtual)` call. Threads in Java do not return values; they can only
-be `join`-ed or interrupted. Use this macro when you're interested in a `Thread`
-object but not the result.
+be `join`-ed or interrupted. Use this macro when interested in a `Thread` object
+but not the result.
 
 ~~~clojure
 (let [thread1
@@ -144,10 +144,10 @@ object but not the result.
 ### pmap(!)
 
 The `pmap` function acts like the standard `clojure.core/pmap`: it takes a
-function an a collection (or more collections). It opens a new virtual executor
+function and a collection (or more collections). It opens a new virtual executor
 and submits each calculation step to the executor. The result is a vector of
-futures. The function closes the executor afterwars which leads to blocking
-untill all the tasks are completed.
+futures. The function closes the executor afterwards, blocking until all the
+tasks are complete.
 
 ~~~clojure
 (let [futs
@@ -177,7 +177,7 @@ no exception handling:
 ### each(!)
 
 The `each` macro is a wrapper on top of `pmap`. It binds each item from a
-collection to a given symbol and submits a block of code into a virtual
+collection to a given symbol and submits a code block into a virtual
 executor. The result is a vector of futures; exiting the macro closes the
 executor.
 
@@ -192,15 +192,14 @@ executor.
   (is (= [{...}, {...}, {...}] (mapv deref futs))))
 ~~~
 
-The `each!` macro acts the same but dereferences all the futures with no error
-handling.
+The `each!` macro acts the same but dereferences all the futures with no error handling.
 
 ## Measurements
 
-There is a development `dev/src/bench.clj` file with some trivial measurements
-made. Imagine you want to download 100 of URLs. You can do in sequentially with
-`mapv`, semi-parallel with `pmap`, and fully parallel with `pmap` from this
-library. Here are the timings on my machine:
+There is a development `dev/src/bench.clj` file with some trivial
+measurements. Imagine you want to download 100 of URLs. You can do it
+sequentially with `mapv`, semi-parallel with `pmap`, and fully parallel with
+`pmap` from this library. Here are the timings made on my machine:
 
 ~~~clojure
 (time
@@ -219,7 +218,7 @@ library. Here are the timings on my machine:
 "Elapsed time: 1452.514165 msecs"
 ~~~
 
-45, 3.3, and 1.4 seconds in favour of the virtual threads approach.
+45, 3.3, and 1.4 seconds favour the virtual threads approach.
 
 ## Links and Resources
 
