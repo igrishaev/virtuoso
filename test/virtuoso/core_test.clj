@@ -90,3 +90,16 @@
   (let [values
         (v/pmap! + [1 2 3] [2 3 4])]
     (is (= [3 5 7] values))))
+
+
+(deftest test-each
+
+  (let [futs
+        (v/each [x [1 2 3]]
+          (inc x))]
+    (is (= [2 3 4] (mapv deref futs))))
+
+  (let [values
+        (v/each! [x [1 2 3]]
+          (inc x))]
+    (is (= [2 3 4] values))))

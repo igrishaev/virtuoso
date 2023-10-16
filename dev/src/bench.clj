@@ -19,6 +19,11 @@
 #_
 (time
  (count
+  (map download URLS)))
+
+#_
+(time
+ (count
   (pmap download URLS)))
 
 #_
@@ -26,10 +31,6 @@
  (count
   (v/pmap! download URLS)))
 
-#_
-(time
- (count
-  (map download URLS)))
 
 
 (defn task [_]

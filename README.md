@@ -24,6 +24,11 @@ A small wrapper on top of [virtual threads][virtual-threads] introduced in Java
 
 ## About
 
+The recent release of Java 21 introduced virtual threads to the scene. It's a
+nice feature that allows you to run imperative code such as it has been written
+in an asynchronous way. This library is a naive attempt to gain something from
+the virtual threads.
+
 ## Installation
 
 Lein
@@ -171,16 +176,58 @@ no exception handling:
 
 ### each(!)
 
+The `each` macro is a wrapper on top of `pmap`. It binds each item from a
+collection to a given symbol and submits a block of code into a virtual
+executor. The result is a vector of futures; exiting the macro closes the
+executor.
+
+~~~clojure
+(let [futs
+      (v/each [id [1 2 3]]
+        (log/info...)
+        (try
+          (get-entity-by-id id)
+          (catch Throwable e
+            (log/error e ...))))]
+  (is (= [{...}, {...}, {...}] (mapv deref futs))))
+~~~
+
+The `each!` macro acts the same but dereferences all the futures with no error
+handling.
+
 ## Measurements
+
+There is a development `dev/src/bench.clj` file with some trivial measurements
+made. Imagine you want to download 100 of URLs. You can do in sequentially with
+`mapv`, semi-parallel with `pmap`, and fully parallel with `pmap` from this
+library. Here are the timings on my machine:
+
+~~~clojure
+(time
+ (count
+  (map download URLS)))
+"Elapsed time: 45846.601717 msecs"
+
+(time
+ (count
+  (pmap download URLS)))
+"Elapsed time: 3343.254302 msecs"
+
+(time
+ (count
+  (v/pmap! download URLS)))
+"Elapsed time: 1452.514165 msecs"
+~~~
+
+45, 3.3, and 1.4 seconds in favour of the virtual threads approach.
 
 ## Links and Resources
 
-Java 21 new feature: Virtual Threads #RoadTo21
-https://www.youtube.com/watch?v=5E0LU85EnTI
+The following links helped me a lot to dive into virtual threads, and I highly
+recommend reading and watching them:
 
-
-Virtual Threads | Oracle Help Center
-https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html
+- [Virtual Threads | Oracle Help Center](https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html)
+- [Java 21 new feature: Virtual Threads #RoadTo21](https://www.youtube.com/watch?v=5E0LU85EnTI)
 
 ## License
 
