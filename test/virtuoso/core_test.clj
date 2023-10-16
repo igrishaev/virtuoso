@@ -27,6 +27,14 @@
           (is true))))))
 
 
+(deftest test-thread
+  (let [capture! (atom {:foo 1})
+        t (v/thread
+            (swap! capture! update :foo inc))]
+    (.join t)
+    (is (= {:foo 2} @capture!))))
+
+
 (deftest test-futures
 
   (let [fut (v/future (+ 1 2 3))]

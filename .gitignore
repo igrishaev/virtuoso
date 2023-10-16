@@ -11,3 +11,7 @@ pom.xml.asc
 /.prepl-port
 .hgignore
 .hg/
+
+node_modules/
+package-lock.json
+package.json
