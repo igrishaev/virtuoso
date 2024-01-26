@@ -8,6 +8,9 @@
    [virtuoso.core :as v]))
 
 
+(def ^:dynamic *foo* 0)
+
+
 (deftest test-executor
 
   (let [capture! (atom nil)]
@@ -27,15 +30,7 @@
           (is true))))))
 
 
-(deftest test-thread
-  (let [capture! (atom {:foo 1})
-        t (v/thread
-            (swap! capture! update :foo inc))]
-    (.join t)
-    (is (= {:foo 2} @capture!))))
-
-
-(deftest test-futures
+(deftest test-future
 
   (let [fut (v/future (+ 1 2 3))]
     (is (future? fut))
@@ -53,53 +48,84 @@
           res
           [@f1 @f2]]
 
-      (is (= [7 12] res))))
+      (is (= [7 12] res)))))
 
-  (let [futs
-        (v/futures
-         (+ 1 2 3)
-         (* 1 2 3)
-         (assoc {:foo 42} :bar 1))]
 
-    (is (= 3 (count futs)))
-    (is (= [6 6 {:foo 42, :bar 1}] (mapv deref futs))))
+(deftest test-pvalues
 
   (let [values
-        (v/futures!
+        (v/pvalues
          (+ 1 2 3)
          (* 1 2 3)
          (assoc {:foo 42} :bar 1))]
 
+    (is (= 3 (count values)))
     (is (= [6 6 {:foo 42, :bar 1}] values))))
 
 
+(deftest test-map
+  (let [result
+        (v/map vector [1 2 3] [:a :b])]
+    (is (= [[1 :a] [2 :b]]
+           result))))
+
+
 (deftest test-pmap
+  (let [result
+        (v/pmap 3 + [1 2 3] [4 5 6 7])]
+    (is (= [5 7 9] result))))
 
-  (let [futs
-        (v/pmap inc [1 2 3])]
-    (is (= [2 3 4] (mapv deref futs))))
 
-  (let [futs
-        (v/pmap + [1 2 3] [2 3 4])]
-    (is (= [3 5 7] (mapv deref futs))))
+(deftest test-pmap-widnow
+  (let [result
+        (v/pmap 2 / [4 3 2 1 0] [4 3 2 1 0])]
 
+    (is (= 1 (nth result 0)))
+    (is (= 1 (nth result 2)))
+
+    (try
+      (nth result 4)
+      (is false)
+      (catch Throwable e
+        (is true)
+        (is (= "java.lang.ArithmeticException: Divide by zero"
+               (ex-message e)))))))
+
+
+(deftest test-frame
+
+  (let [result
+        (binding [*foo* 42]
+          (v/with-executor [exe]
+            (v/future-via exe
+              (inc *foo*))))]
+    (is (= 43 @result)))
+
+  (let [result
+        (binding [*foo* 42]
+          (v/map (fn [x]
+                   (+ *foo* x))
+              [1 2 3]))]
+    (is (= [43 44 45] result)))
+
+  (let [result
+        (binding [*foo* 42]
+          (v/pmap 2 (fn [x]
+                      (+ *foo* x))
+              [1 2 3 4 5]))]
+    (is (= [1 2 3 4 5] result)))
+
+  (let [result
+        (binding [*foo* 42]
+          (doall
+           (v/pmap 2 (fn [x]
+                       (+ *foo* x))
+               [1 2 3 4 5])))]
+    (is (= [43 44 45 46 47] result))))
+
+
+(deftest test-for
   (let [values
-        (v/pmap! inc [1 2 3])]
-    (is (= [2 3 4] values)))
-
-  (let [values
-        (v/pmap! + [1 2 3] [2 3 4])]
-    (is (= [3 5 7] values))))
-
-
-(deftest test-each
-
-  (let [futs
-        (v/each [x [1 2 3]]
-          (inc x))]
-    (is (= [2 3 4] (mapv deref futs))))
-
-  (let [values
-        (v/each! [x [1 2 3]]
+        (v/for [x [1 2 3]]
           (inc x))]
     (is (= [2 3 4] values))))

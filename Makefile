@@ -1,16 +1,15 @@
 
 jdk21 ?= $(error Please specify the jdk21=... home path)
-jdk21bin = ${jdk21}/bin/java
 
 repl:
-	JDK21=${jdk21bin} lein repl
+	JAVA_HOME=${jdk21} lein repl
 
 .PHONY: test
 test:
-	JDK21=${jdk21bin} lein test
+	JAVA_HOME=${jdk21} lein test
 
 release:
-	JDK21=${jdk21bin} lein release
+	JAVA_HOME=${jdk21} lein release
 
 toc-install:
 	npm install --save markdown-toc
