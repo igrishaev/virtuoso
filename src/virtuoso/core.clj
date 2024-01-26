@@ -8,6 +8,9 @@
 (alias 'cc 'clojure.core)
 
 
+;; TODO: thread
+
+
 (defmacro with-executor
   "
   Run a block of code with a new instance of a virtual task executor
