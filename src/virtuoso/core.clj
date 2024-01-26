@@ -8,9 +8,6 @@
 (alias 'cc 'clojure.core)
 
 
-;; TODO: thread
-
-
 (defmacro with-executor
   "
   Run a block of code with a new instance of a virtual task executor
@@ -54,7 +51,12 @@
   `(cc/map deref ~coll))
 
 
-(defmacro pvalues [& forms]
+(defmacro pvalues
+  "
+  Spawn a new virtual executor and perform each form separately
+  in a future. Return a sequence of deferenced futures.
+  "
+  [& forms]
   (let [EXE (gensym "EXE")]
     `(underef
       (with-executor [~EXE]
@@ -63,7 +65,14 @@
                 ~form))]))))
 
 
-(defmacro for [seq-exprs body-expr]
+(defmacro for
+  "
+  Like `for` but spawn a new virtual executor and wrap
+  the body expression with a future. Return a sequence
+  of dereferenced futures. `:len`, `:when`, expressions
+  are supported.
+  "
+  [seq-exprs body-expr]
   `(underef
     (with-executor [exe#]
       (doall
@@ -72,7 +81,13 @@
            ~body-expr))))))
 
 
-(defmacro map [f coll & colls]
+(defmacro map
+  "
+  Like `map` but wrap each `f` call with a future
+  bound to the temporary virtual executor. Return
+  a list of dereferenced futures.
+  "
+  [f coll & colls]
   (let [ARGS
         (cc/for [_ (cons coll colls)]
           (gensym "X"))]
@@ -84,7 +99,14 @@
                      (~f ~@ARGS))) ~coll ~@colls))))))
 
 
-(defmacro pmap [n f coll & colls]
+(defmacro pmap
+  "
+  Like `pmap` but evaluate each chunk in a dedicated
+  virtual executor. The `n` parameter specifies the
+  size of chunk. Return a semi-lazy sequence of
+  dereferenced futures.
+  "
+  [n f coll & colls]
 
   (let [all-colls
         (cons coll colls)
