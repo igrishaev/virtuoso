@@ -2,10 +2,18 @@
   (:refer-clojure :exclude [future pmap map for pvalues])
   (:import
    java.util.concurrent.Callable
-   java.util.concurrent.Executors))
+   java.util.concurrent.Executors
+   java.util.concurrent.ExecutorService
+   ))
 
 
 (alias 'cc 'clojure.core)
+
+(set! *warn-on-reflection* true)
+
+
+(def ^ExecutorService EXECUTOR
+  (Executors/newVirtualThreadPerTaskExecutor))
 
 
 (defmacro with-executor
@@ -20,34 +28,25 @@
      ~@body))
 
 
-(def -binding-conveyor-fn
-  @(var cc/binding-conveyor-fn))
-
-
 (defmacro future-via
   "
-  Spawn a new future using a previously open executor.
-  Do not wait for the task to be completed.
+  TODO
   "
   {:style/indent 1}
   [executor & body]
-  `(let [func# (-binding-conveyor-fn
-                (^{:once true} fn* [] ~@body))]
-     (.submit ~executor ^Callable func#)))
+  `(.submit ~executor ^Callable (^{:once true} fn* [] ~@body)))
 
 
 (defmacro future
   "
-  Spawn a new future using a temporal virtual executor.
-  Close the pool afterwards. Block until the task is completed.
+  TODO
   "
   [& body]
-  `(with-executor [executor#]
-     (future-via executor#
-       ~@body)))
+  `(future-via EXECUTOR ~@body))
 
 
 (defmacro underef [coll]
+  ;; TODO: better
   `(cc/map deref ~coll))
 
 
@@ -57,12 +56,20 @@
   in a future. Return a sequence of deferenced futures.
   "
   [& forms]
+  `(pvalues-via EXECUTOR ~@forms))
+
+
+(defmacro pvalues-via
+  "
+  Spawn a new virtual executor and perform each form separately
+  in a future. Return a sequence of deferenced futures.
+  "
+  [executor & forms]
   (let [EXE (gensym "EXE")]
     `(underef
-      (with-executor [~EXE]
-        [~@(cc/for [form forms]
-             `(future-via ~EXE
-                ~form))]))))
+      [~@(cc/for [form forms]
+           `(future-via ~executor
+              ~form))])))
 
 
 (defmacro for
