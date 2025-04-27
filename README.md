@@ -11,12 +11,6 @@ A small wrapper on top of [virtual threads][virtual-threads] introduced in Java
 - [Installation](#installation)
 - [V2 API (new)](#v2-api-new)
 - [V1 API (old)](#v1-api-old)
-  * [with-executor](#with-executor)
-  * [future-via](#future-via)
-  * [futures(!)](#futures)
-  * [thread](#thread)
-  * [pmap(!)](#pmap)
-  * [each(!)](#each)
 - [Measurements](#measurements)
 - [Links and Resources](#links-and-resources)
 - [License](#license)
@@ -189,7 +183,7 @@ First, import the library:
 (require '[virtuoso.core :as v])
 ~~~
 
-### with-executor
+**with-executor**
 
 The `with-executor` wraps a block of code binding a new instance of
 `VirtualThreadPerTaskExecutor` to the passed symbol:
@@ -206,7 +200,7 @@ tasks sent to it are complete. The `with-executor` macro, although it might be
 used on your code, is instead a building material for other macros.
 
 
-### future-via
+**future-via**
 
 The `future-via` macro spawns a new virtual future through a previously open
 executor. You can generate as many futures as you want due to the nature of
@@ -226,7 +220,7 @@ IO. Instead, if you run CPU-based computations in virtual threads, the
 performance suffers due to continuations and moving the stack trace from the
 stack to the heap and back.
 
-### futures(!)
+**futures(!)**
 
 The `futures` macro takes a series of forms. It spawns a new virtual thread
 executor and wraps each form into a future bound to that executor. The result is
@@ -259,7 +253,7 @@ handling, there is a `futures!` macro that does it for you:
 
 The result will be vector of dereferenced values.
 
-### thread
+**thread**
 
 The `thread` macro spawns and starts a new virtual thread using the
 `(Thread/ofVirtual)` call. Threads in Java do not return values; they can only
@@ -279,7 +273,7 @@ but not the result.
   (.join thread2))
 ~~~
 
-### pmap(!)
+**pmap(!)**
 
 The `pmap` function acts like the standard `clojure.core/pmap`: it takes a
 function and a collection (or more collections). It opens a new virtual executor
@@ -312,7 +306,7 @@ no exception handling:
 ;; [{:id 1...}, {:id 2...}, {:id 3...}]
 ~~~
 
-### each(!)
+**each(!)**
 
 The `each` macro is a wrapper on top of `pmap`. It binds each item from a
 collection to a given symbol and submits a code block into a virtual
