@@ -5,11 +5,11 @@
                             for
                             pvalues])
   (:import
-   clojure.lang.RT
-   java.util.Iterator
-   java.util.concurrent.Callable
-   java.util.concurrent.ExecutorService
-   java.util.concurrent.Executors))
+   (java.lang VirtualThread)
+   (java.util.concurrent Callable
+                         Future
+                         ExecutorService
+                         Executors)))
 
 
 (set! *warn-on-reflection* true)
@@ -22,7 +22,12 @@
   (Executors/newVirtualThreadPerTaskExecutor))
 
 
-(defn underef [coll]
+(defn underef
+  "
+  A helper function that accepts a lazy sequence
+  of futures and derefs items lazily one by one.
+  "
+  [coll]
   (lazy-seq
    (when-let [f (first coll)]
      (cons (deref f) (underef (next coll))))))
@@ -30,20 +35,33 @@
 
 (defmacro future
   "
+  Wraps an arbitrary block of code into a future
+  bound to global virtual executor service.
   "
-  [& body]
+  ^Future [& body]
   `(.submit -EXECUTOR
             ^Callable
             (^{:once true} fn* [] ~@body)))
 
 
-(defmacro pvalues [& forms]
+(defmacro pvalues
+  "
+  Wrap each form into a virtual future and return
+  a lazy sequence that, while iterating, derefs
+  them.
+  "
+  [& forms]
   `(underef
     (list ~@(cc/for [form forms]
               `(future ~form)))))
 
 
 (defn map
+  "
+  Like `map` but run each function in a virtual future.
+  Return a lazy sequence that derefs futures when
+  iterating.
+  "
   ([f coll]
    (underef
     (doall
@@ -56,17 +74,42 @@
     (doall
      (apply cc/map
             (fn [& items]
-              (apply println items)
               (future (apply f items)))
             coll
             colls)))))
 
 
-(defmacro for [seq-exprs body-expr]
+(defmacro for
+  "
+  Like `for` but wraps each body expression into a virtual
+  future. Return a lazy sequence that derefs them when
+  iterating.
+  "
+  [seq-exprs body-expr]
   `(underef
     (doall
      (cc/for ~seq-exprs
        (future ~body-expr)))))
 
 
-;; thread
+(defmacro thread
+  "
+  Spawn and run a new virtual thread.
+  "
+  ^VirtualThread [& body]
+  `(-> (Thread/ofVirtual)
+       (.name "virtuoso.v2")
+       (.start
+        (reify Runnable
+          (run [this#]
+            ~@body)))))
+
+
+(defonce ^Thread -shutdown-hook
+  (new Thread (fn []
+                (.close -EXECUTOR))))
+
+
+(defonce ___
+  (-> (Runtime/getRuntime)
+      (.addShutdownHook -shutdown-hook)))

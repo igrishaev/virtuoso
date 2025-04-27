@@ -4,7 +4,6 @@
    clojure.lang.RT
    java.util.Iterator
    java.util.concurrent.Callable
-   java.util.concurrent.ExecutorService
    java.util.concurrent.Executors))
 
 
