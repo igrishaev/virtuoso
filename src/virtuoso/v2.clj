@@ -1,4 +1,8 @@
 (ns virtuoso.v2
+  "
+  A set of Clojure-like functions and macros
+  that act using a global virtual executor.
+  "
   (:refer-clojure :exclude [future
                             pmap
                             map
