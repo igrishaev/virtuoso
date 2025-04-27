@@ -4,7 +4,7 @@
   ~(System/getenv "JDK21")
 
   :description
-  "A small wrapper on top of Java 21 virtual threads"
+  "A number of trivial wrappers on top of virtual threads"
 
   :url
   "https://github.com/igrishaev/virtuoso"
