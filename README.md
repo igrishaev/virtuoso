@@ -29,13 +29,13 @@ virtual threads.
 Lein
 
 ~~~clojure
-[com.github.igrishaev/virtuoso "0.1.0"]
+[com.github.igrishaev/virtuoso "0.1.1"]
 ~~~
 
 Deps/CLI
 
 ~~~clojure
-{com.github.igrishaev/virtuoso {:mvn/version "0.1.0"}}
+{com.github.igrishaev/virtuoso {:mvn/version "0.1.1"}}
 ~~~
 
 ## V2 API (new)
