@@ -119,7 +119,7 @@
                (with-executor [exe]
                  (cc/mapv (fn [item]
                             (future-via [exe]
-                              (f item)))
+                                        (f item)))
                           items)))
               (nmap n f (drop n coll))))))
 
@@ -140,7 +140,7 @@
                    (apply cc/mapv
                           (fn [& args]
                             (future-via [exe]
-                              (apply f args)))
+                                        (apply f args)))
                           chunks)))
                 (apply nmap
                        n
@@ -164,7 +164,7 @@
          ss 2
          sdf 3]
 
-  )
+      )
 
 
 #_
@@ -173,6 +173,69 @@
 
 
 (comment
+
+  ;; -------
+
+  (defmacro with-executor [[bind] & body]
+    `(with-open [~bind (Executors/newVirtualThreadPerTaskExecutor)]
+       ~@body))
+
+
+  (defmacro submit [[exe] & body]
+    `(.submit ~exe
+              ^Callable
+              (^{:once true} fn* [] ~@body)))
+
+
+  (defn underef
+    "
+  A helper function that accepts a lazy sequence
+  of futures and derefs items lazily one by one.
+  "
+    [coll]
+    (lazy-seq
+     (when-let [f (first coll)]
+       (cons (deref f) (underef (next coll))))))
+
+
+  (defn by-chunks [n coll]
+    (partition n n [] coll))
+
+  (defn map2 [f coll n]
+    (lazy-seq
+     (when-let [items (->> coll (take n) (seq))]
+       (concat (underef
+                (with-executor [exe]
+                  (cc/mapv (fn [item]
+                             (submit [exe]
+                                     (f item)))
+                           items)))
+               (map2 f (drop n coll) n)))))
+
+
+  #_
+  (defn mapv2 [n f coll]
+    (lazy-seq
+     (when-let [items (->> coll (take n) (seq))]
+       (concat (underef
+                (with-executor [exe]
+                  (cc/mapv (fn [item]
+                             (submit [exe]
+                                     (f item)))
+                           items)))
+               (map2 f (drop n coll) n)))))
+
+
+  (defn map3 [n f coll & colls]
+    (lazy-seq
+     (when-let [items (->> coll (take n) (seq))]
+       (concat (underef
+                (with-executor [exe]
+                  (cc/mapv (fn [item]
+                             (submit [exe]
+                                     (f item)))
+                           items)))
+               (map2 f (drop n coll) n)))))
 
   (def -r
     (map 5
