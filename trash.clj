@@ -39,3 +39,84 @@
                 (finally
                   (println x "DONE")))))
            (doall)))
+
+(defmacro future [& body]
+  `(let [array#
+         (object-array 2)
+
+         thread#
+         (Thread/startVirtualThread
+          (binding-conveyor-fn
+           (^{:once true} fn* []
+            (let [[result# error#]
+                  (try
+                    [(do ~@body) nil]
+                    (catch Throwable e#
+                      [nil e#]))]
+              (aset array# 0 result#)
+              (aset array# 1 error#)))))]
+
+     (reify
+
+       clojure.lang.IDeref
+       (deref [_#]
+         (.join thread#)
+         (let [[result# error#] array#]
+           (if error#
+             (throw error#)
+             result#)))
+
+       #_
+       clojure.lang.IBlockingDeref
+       #_
+       (deref [_ timeout-ms# timeout-val#]
+         (.join thread# timeout-val#)
+         (let [[result# error#] array#]
+           (if error#
+             (throw error#)
+             result#)))
+
+       clojure.lang.IPending
+       (isRealized [_]
+         (.isAlive thread#))
+
+       java.util.concurrent.Future
+       (get [this#]
+         (deref this#))
+
+       #_
+       (get [_ timeout unit]
+         (.join thread# timeout-val#)
+         ;; convert
+         #_
+         (.get fut timeout unit))
+
+       (isCancelled [_]
+         (.isInterrupted thread#))
+
+       (isDone [_]
+         (not (.isAlive thread#)))
+
+       (cancel [_ interrupt?]
+         (.interrupt thread#))))
+  )
+
+
+(defmacro future
+  "
+  TODO
+  "
+  ^CompletableFuture [& body]
+  `(let [future# (new CompletableFuture)]
+     (Thread/startVirtualThread
+      (binding-conveyor-fn
+       (^{:once true} fn* []
+        (let [[result# e#]
+              (try
+                [(do ~@body) nil]
+                (catch Throwable e#
+                  [nil e#]))]
+          (if e#
+            (.completeExceptionally future# e#)
+            (.complete future# result#))))))
+     future#))
