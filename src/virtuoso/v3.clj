@@ -1,5 +1,8 @@
 (ns virtuoso.v3
   "
+  A set of functions and macros named after
+  their clojure.core counterparts but acting
+  using virtual threads.
   "
   (:refer-clojure :exclude [future
                             pmap
@@ -25,8 +28,8 @@
   "
   Run a block of code with a new instance of a virtual task executor
   bound to the `bind` symbol. The executor gets closed when exiting
-  the macro. Guarantees that all the submitted tasks will be completed
-  before closing the executor.
+  the macro. Guarantees that all the submitted tasks are completed
+  before the executor is closed.
   "
   [[bind] & body]
   `(with-open [~bind (Executors/newVirtualThreadPerTaskExecutor)]
@@ -52,7 +55,8 @@
 
 (defmacro thread
   "
-  TODO
+  Run a block of code in a virtual thread. Return
+  a running VirtualThread instance.
   "
   ^VirtualThread [& body]
   `(-> (Thread/ofVirtual)
@@ -64,7 +68,10 @@
 
 (defmacro future
   "
-  TODO
+  Run a block of code in a virtual thread. Return
+  a CompletableFuture that gets completed either
+  successfully or exceptionally depending on how
+  the code behaves.
   "
   ^CompletableFuture [& body]
   `(let [future# (new CompletableFuture)]
@@ -82,8 +89,8 @@
 
 (defn process-by-one
   "
-  A helper function that accepts a lazy sequence of items
-  and applies a function to them one by one.
+  A helper function that accepts a sequence of items
+  and applies a function lazily one by one.
   "
   [f coll]
   (lazy-seq
@@ -93,18 +100,43 @@
 
 (defn deref-by-one
   "
-  Deref items lazily one by one.
+  Deref all items from a collection lazily one by one.
   "
   [coll]
   (process-by-one deref coll))
 
 
+(defn map
+  "
+  Like `map` but each function is running in a  virtual executor
+  producing a future. Return a lazy sequence that derefs futures
+  when iterating.
+  "
+  ([f coll]
+   (deref-by-one
+    (with-executor [exe]
+      (cc/mapv (fn [item]
+                 (future-via [exe]
+                   (f item)))
+               coll))))
+
+  ([f coll & colls]
+   (deref-by-one
+    (with-executor [exe]
+      (apply cc/mapv
+             (fn [& items]
+               (future-via [exe]
+                 (apply f items)))
+             coll
+             colls)))))
+
 (defn fmap
   "
-  Like map but relies on virtual threads. The `n` parameter
-  specifies the window size. Each window is executed under
-  a dedicated virtual executor which gets closed afterwards.
-  Return a lazy chunked collection of futures.
+  Like `pmap` where each chunk of items is executed in
+  a dedicated virtual executor. The `n` parameter specifies
+  the chunk size. Each chunk gets completely finished and
+  the executor is closed before proceeding to the next chunk.
+  Return a lazy sequence of futures.
   "
   ([n f coll]
    (lazy-seq
@@ -137,36 +169,13 @@
                          (drop n coll)))))))))
 
 
-(defn map222
+(defn pmap
   "
-  Like `map` but run each function in a virtual future.
-  Return a lazy sequence that derefs futures when
-  iterating.
-  "
-  ([f coll]
-   (deref-by-one
-    (with-executor [exe]
-      (cc/mapv (fn [item]
-                 (future-via [exe]
-                   (f item)))
-               coll))))
-
-  ([f coll & colls]
-   (deref-by-one
-    (with-executor [exe]
-      (apply cc/mapv
-             (fn [& items]
-               (future-via [exe]
-                 (apply f items)))
-             coll
-             colls)))))
-
-
-(defn map
-  "
-  Like fmap but wrapped with an extra lazy layer
-  that derefs futures one by one when iterating
-  the result.
+  Like `pmap` but each chunk of items is run in a dedicated
+  virtual executor. Next chunk is only calculated after the
+  previous one was done. The `n` parameter specifies the
+  chunk size. Return a lazy sequence of items deref'fed one
+  by one. Based on `fmap` (see above).
   "
   ([n f coll]
    (deref-by-one
@@ -178,9 +187,9 @@
 
 (defmacro pvalues
   "
-  Run each form in a dedicated virtual executor and
-  close it afterwards. Return a sequence of deref'ed
-  futures (by one).
+  Run forms in a dedicated virtual executor and close it
+  afterwards. Return a lazy sequence of deref'ed futures
+  (by one).
   "
   [& forms]
   (let [exe (gensym "exe")]
@@ -193,7 +202,10 @@
 
 (defmacro for
   "
-  TODO
+  Like `for` but performs all body expressions
+  in a virtual executor. The executor gets closed
+  afterwards. Return a lazy sequence of deref'ed
+  items.
   "
   [bindings & body]
   `(deref-by-one
