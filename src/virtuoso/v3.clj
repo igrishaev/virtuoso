@@ -87,45 +87,56 @@
      future#))
 
 
-(defn deref-all
+(defn process-by-one
+  "
+  A helper function that accepts a sequence of items
+  and applies a function lazily one by one.
+  "
+  [f coll]
+  (lazy-seq
+   (when-let [e (first coll)]
+     (cons (f e) (process-by-one f (next coll))))))
+
+
+(defn deref-by-one
   "
   Deref all items from a collection lazily one by one.
   "
   [coll]
-  (lazy-seq
-   (when-let [e (first coll)]
-     (cons (deref e) (deref-all (next coll))))))
+  (process-by-one deref coll))
 
 
 (defn map
   "
   Like `map` but each function is running in a  virtual executor
-  producing a future. Return a vector of completed/failed futures
-  (no pending ones).
+  producing a future. Return a lazy sequence that derefs futures
+  when iterating.
   "
   ([f coll]
-   (with-executor [exe]
-     (cc/mapv (fn [item]
-                (future-via [exe]
-                  (f item)))
-              coll)))
+   (deref-by-one
+    (with-executor [exe]
+      (cc/mapv (fn [item]
+                 (future-via [exe]
+                   (f item)))
+               coll))))
 
   ([f coll & colls]
-   (with-executor [exe]
-     (apply cc/mapv
-            (fn [& items]
-              (future-via [exe]
-                (apply f items)))
-            coll
-            colls))))
+   (deref-by-one
+    (with-executor [exe]
+      (apply cc/mapv
+             (fn [& items]
+               (future-via [exe]
+                 (apply f items)))
+             coll
+             colls)))))
 
-(defn pmap
+(defn fmap
   "
   Like `pmap` where each chunk of items is executed in
   a dedicated virtual executor. The `n` parameter specifies
   the chunk size. Each chunk gets completely finished and
   the executor is closed before proceeding to the next chunk.
-  Return a lazy sequence of completed/failed futures.
+  Return a lazy sequence of futures.
   "
   ([n f coll]
    (lazy-seq
@@ -135,7 +146,7 @@
                  (cc/for [item chunk]
                    (future-via [exe]
                      (f item)))))
-              (pmap n f (drop n coll))))))
+              (fmap n f (drop n coll))))))
 
   ([n f coll & colls]
    (lazy-seq
@@ -150,7 +161,7 @@
                            (future-via [exe]
                              (apply f args)))
                          chunks))
-                (apply pmap
+                (apply fmap
                        n
                        f
                        (drop n coll)
@@ -158,28 +169,48 @@
                          (drop n coll)))))))))
 
 
+(defn pmap
+  "
+  Like `pmap` but each chunk of items is run in a dedicated
+  virtual executor. Next chunk is only calculated after the
+  previous one was done. The `n` parameter specifies the
+  chunk size. Return a lazy sequence of items deref'fed one
+  by one. Based on `fmap` (see above).
+  "
+  ([n f coll]
+   (deref-by-one
+    (fmap n f coll)))
+  ([n f coll & colls]
+   (deref-by-one
+    (apply fmap n f coll colls))))
+
+
 (defmacro pvalues
   "
   Run forms in a dedicated virtual executor and close it
-  afterwards. Return a vector of completed/failed futures.
+  afterwards. Return a lazy sequence of deref'ed futures
+  (by one).
   "
   [& forms]
   (let [exe (gensym "exe")]
-    `(with-executor [~exe]
-       [~@(cc/for [form forms]
-            `(future-via [~exe]
-               ~form))])))
+    `(deref-by-one
+      (with-executor [~exe]
+        [~@(cc/for [form forms]
+             `(future-via [~exe]
+                ~form))]))))
 
 
 (defmacro for
   "
-  Like `for` but performs all body expressions in a virtual
-  executor. The executor gets closed afterwards. Return
-  a realized sequence of completed/failed futures.
+  Like `for` but performs all body expressions
+  in a virtual executor. The executor gets closed
+  afterwards. Return a lazy sequence of deref'ed
+  items.
   "
   [bindings & body]
-  `(with-executor [exe#]
-     (doall
-      (cc/for [~@bindings]
-        (future-via [exe#]
-          ~@body)))))
+  `(deref-by-one
+    (with-executor [exe#]
+      (doall
+       (cc/for [~@bindings]
+         (future-via [exe#]
+           ~@body))))))

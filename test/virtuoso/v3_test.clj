@@ -66,10 +66,10 @@
            @capture!))
 
     (is (= 2
-           @(first result)))
+           (first result)))
 
     (try
-      @(nth result 1)
+      (nth result 1)
       (is false)
       (catch Exception e
         (is true)))))
@@ -80,7 +80,7 @@
             (+ 1 2))]
     (is (instance? VirtualThread t))
     (is (.isAlive t))
-    (.join t)
+    (Thread/sleep 1000)
     (is (not (.isAlive t)))))
 
 (deftest test-future
@@ -99,10 +99,9 @@
 
 (deftest test-map
   (let [result (v/map inc [1 2 3])]
-    (is (every? future? result))
-    (is (= [2 3 4] (mapv deref result))))
+    (is (= [2 3 4] result)))
 
-  (let [result (v/deref-all (v/map / [4 6 3] [2 2 0]))]
+  (let [result (v/map / [4 6 3] [2 2 0])]
     (is (= 2 (nth result 0)))
     (is (= 3 (nth result 1)))
     (try
@@ -112,7 +111,7 @@
         (is e))))
 
   (let [result (v/map / [4 6 3] [2 2 3 0])]
-    (is (= [2 3 1] (mapv deref result)))))
+    (is (= [2 3 1] result))))
 
 (deftest test-pmap
   (let [capture!
@@ -127,7 +126,7 @@
                 [3 2 1 0])]
 
     (is (= #{} @capture!))
-    (is (= 1 @(first result)))
+    (is (= 1 (first result)))
     (is (= #{[2 2] [3 3] [1 1]} @capture!))))
 
 
