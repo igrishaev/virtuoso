@@ -80,7 +80,7 @@
             (+ 1 2))]
     (is (instance? VirtualThread t))
     (is (.isAlive t))
-    (Thread/sleep 1000)
+    (.join t)
     (is (not (.isAlive t)))))
 
 (deftest test-future
@@ -134,4 +134,3 @@
 ;; future-via
 ;; overrides
 ;; bindings?
-;; fmap
