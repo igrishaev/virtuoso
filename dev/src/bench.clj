@@ -1,48 +1,44 @@
 (ns bench
   (:require
-   [virtuoso.core :as v]
+   [virtuoso.v3 :as v3]
    [clj-http.client :as client]
    [cheshire.core :as json]))
 
-(def URL "https://google.com")
+;; /opt/homebrew/var/www
+(def URL "http://127.0.0.1:8080/hugefile.bin")
 
-(defn download [url]
-  (-> URL
-      client/get
-      :body))
-
-
-(def URLS
-  (vec (repeat 100 URL)))
-
-
-#_
-(time
- (count
-  (map download URLS)))
-
-#_
-(time
- (count
-  (pmap download URLS)))
-
-#_
-(time
- (count
-  (v/pmap! download URLS)))
+(defn download [i]
+  (with-open [in ^java.io.InputStream
+              (:body (client/get URL {:as :stream}))
+              out
+              (java.io.OutputStream/nullOutputStream)]
+    (.transferTo in out)))
 
 
-
-(defn task [_]
-  (Thread/sleep 500)
-  42)
+(def SEQ
+  (vec (range 100)))
 
 
-#_
-(time (count (pmap task (repeat 50 nil))))
+(comment
 
-#_
-(time (count (v/pmap! task (repeat 50 nil))))
+  "Elapsed time: 1102802.057709 msecs"
+  (time
+   (count
+    (map download SEQ)))
 
-#_
-(time (count (map task (repeat 50 nil))))
+  "Elapsed time: 44213.30375 msecs"
+  (time
+   (count
+    (pmap download SEQ)))
+
+  "Elapsed time: 11124.417959 msecs"
+  (time
+   (count
+    (v3/map download SEQ)))
+
+  "Elapsed time: 11090.514792 msecs"
+  (time
+   (count
+    (v3/pmap 512 download SEQ)))
+
+  )

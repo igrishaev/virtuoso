@@ -137,64 +137,20 @@
     (is (= 1 (first result)))
     (is (= #{[2 2] [3 3] [1 1]} @capture!))))
 
-(deftest test-)
+(deftest test-future-via
+  (let [f
+        (v/with-executor [exe]
+          (v/future-via [exe]
+            (Thread/sleep 1500)))]
+    (is (false? (future-cancel f)))
+    (is (not (future-cancelled? f)))
+    (is (future-done? f)))
 
-
-
-;; with-executor
-;; future-via
-
-
-(defn sequential-pagination
-  [job-config
-   {:keys [request response next-request req-fn request-sleep-ms] :as params}
-   flow-data]
-  (iteration (fn [[prev-request prev-response]]
-               (when request-sleep-ms
-                 (System/gc)
-                 (Thread/sleep (min request-sleep-ms 15000)))
-               (when-some [req (conditionals/next-request-on-condition
-                                next-request
-                                job-config
-                                params
-                                (assoc flow-data
-                                       :prev-request  prev-request
-                                       :prev-response prev-response))]
-                 [req (req-fn req)]))
-             :initk [request response]))
-
-(->> data
-     (partition-all batch-size)
-     (process-batches! s3-client))
-
-(loop [data data]
-  (when-let [chunk (seq (take batch-size data))]
-    (process-batches! chunk)
-    (recur (drop batch-size data))))
-
-
-
-(defn get-request [job-config
-                   {:as params :keys [next-request
-                                      prev-request
-                                      prev-response]}
-                   flow-data]
-  (conditionals/next-request-on-condition
-   next-request
-   job-config
-   params
-   (assoc flow-data
-          :prev-request  prev-request
-          :prev-response prev-response)))
-
-
-(defn sequential-pagination
-  [job-config
-   {:as params :keys [req-fn]}
-   flow-data]
-  (loop [params params]
-    (when-let [request (get-request job-config params flow-data)]
-      (let [response (req-fn request)]
-        (recur (assoc params
-                      :prev-request request
-                      :prev-response response))))))
+  (let [f
+        (v/with-executor [exe]
+          (v/future-via [exe]
+            (Thread/sleep 100)
+            (/ 0 0)))]
+    (is (false? (future-cancel f)))
+    (is (not (future-cancelled? f)))
+    (is (future-done? f))))

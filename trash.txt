@@ -1,0 +1,10 @@
+server {
+    listen       8080;
+    server_name  localhost;
+
+    location /hugefile.bin {
+        root html;
+        limit_rate 500k;
+    }
+
+}
