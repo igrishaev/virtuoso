@@ -40,6 +40,11 @@ Deps/CLI
 
 ## V3 API (current)
 
+*TL;DR: why making the new API? Because unlike v1 and v2, the third version was
+heavily tested in production. It has spotted some weaknesses in v2 but I don't
+want to introduce breaking changes. Thus, it's safer to ship a new module (done
+right this time, I hope).*
+
 The `virtuoso.v3` namespace provides a number of functions and macros. Most of
 them mimic their counterparts from the `clojure.core` namespace, but are
 enforced by virtual threads.
@@ -126,19 +131,100 @@ or exceptionally).
 (0 2 4 6 8 10 12 14 16 18)
 ~~~
 
-Pay attention: if you perform HTTP calls or file IO for each function,
-apparently you might hit the standard 1024 `ulimit`. Java will throw an
-exception saying "too many open connections" or something. For such cases, it's
-better to use the `pmap` function that acts through chunks (see below).
+Pay attention: if you perform HTTP calls or file IO for each item, apparently
+you might hit the global 1024 `ulimit` constraint. Java will throw an exception
+saying "too many open connections" or something. For such cases, it's better to
+use the `pmap` function that acts through chunks (see below).
 
-**The `pmap` function** is similar to `clojure.core/pmap` in that direction that
-it splits incoming data on chunks. Each chunk of items is served within a
-dedicated virtual executor. The next chunk won't start until the current one is
-complete. The leading `n` parameter determines the chunk size. While working
-with HTTP calls, that's ok to pass 512 or something similar (unless you have a
-custom `ulimit` value set).
+**The `pmap` function** is similar to `clojure.core/pmap` as it splits incoming
+data on chunks. Each chunk of items is served within a dedicated virtual
+executor. The next chunk won't start until the current one is complete. The
+leading `n` parameter determines the chunk size. While working with HTTP calls,
+that's ok to pass 512 or something similar (unless you have a custom `ulimit`
+value set). The function returns a lazy sequence of `deref`-ed values.
 
+~~~clojure
+(def -result
+  (v/pmap 512
+          (fn [a b]
+            (Thread/sleep 1000)
+            (+ a b))
+          (range 1000)
+          (range 1000)))
 
+(count -result) ;; takes ~2 seconds
+1000
+~~~
+
+Better example: download 50k files from S3 by chunks of 1000:
+
+~~~clojure
+(def -result
+  (v/pmap 1000
+          (fn [url]
+            (-> url
+                (client/get {:as :stream})
+                (:body)
+                (process-input-stream)))
+          (get-urls-to-fetch...)))
+~~~
+
+**The `fmap` function** is a low-level function which `pmap` is based on. It
+returns a chunked sequence of futures. It's up to you how to handle them:
+
+~~~clojure
+(def -futs
+  (v/fmap 512
+          (fn [a b]
+            (Thread/sleep 100)
+            (+ a b))
+          (range 1000)
+          (range 1000)))
+
+(take 5 -futs)
+
+(#object[ThreadBoundFuture ...[Completed normally]"]
+ #object[ThreadBoundFuture ...[Completed normally]"]
+ #object[ThreadBoundFuture ...[Completed normally]"]
+ #object[ThreadBoundFuture ...[Completed normally]"]
+ #object[ThreadBoundFuture ...[Completed normally]"])
+~~~
+
+**The `pvalues` macro** acts like `clojure.core/pvalues` forms are executed
+within a virtual executor which gets closed afterwards. The result a lazy
+sequence which iterating, `deref`s futures.
+
+~~~clojure
+(v/pvalues
+  (+ 1 2)
+  (let [a 3 b 4]
+    (Thread/sleep 100)
+    (+ a b))
+  (* 5 6))
+
+;; (3 7 30)
+~~~
+
+**The `for` macro** mimics the standard `clojure.core/for` but each body is run
+in a virtual future. These futures are global meaning they are not bound to a
+dedicated virtual executor. The result is a sequence of `deref`-ed values:
+
+~~~clojure
+(v/for [a [1 2 3]
+        b [:a :b :c]
+        :when (not= [a b] [2 :b])
+        :let [c (* a a)]]
+  {:c c :b b})
+
+({:c 1, :b :a}
+ {:c 1, :b :b}
+ {:c 1, :b :c}
+ {:c 4, :b :a}
+ {:c 4, :b :c}
+ {:c 9, :b :a}
+ {:c 9, :b :b}
+ {:c 9, :b :c})
+~~~
 
 ## V2 API (deprecated)
 
@@ -150,31 +236,65 @@ Moved to a [legacy V1 doc file](doc/v1_api.md).
 
 ## Measurements
 
-TODO updated
+There is a development `dev/src/bench.clj` module with some benchmarks. Imagine
+we want to download 100 large files using `map`, `pmap` and virtual
+threads. Before we do this, let's mimic real environment as follows:
 
-There is a development `dev/src/bench.clj` file with some trivial
-measurements. Imagine you want to download 100 of URLs. You can do it
-sequentially with `mapv`, semi-parallel with `pmap`, and fully parallel with
-`pmap` from this library. Here are the timings made on my machine:
+- install and run nginx;
+- put a large binary file into the static folder;
+- for that file, limit the throughput:
 
-~~~clojure
-(time
- (count
-  (map download URLS)))
-"Elapsed time: 45846.601717 msecs"
-
-(time
- (count
-  (pmap download URLS)))
-"Elapsed time: 3343.254302 msecs"
-
-(time
- (count
-  (v/pmap! download URLS)))
-"Elapsed time: 1452.514165 msecs"
+~~~text
+server {
+    listen       8080;
+    server_name  localhost;
+    ...
+    location /hugefile.bin {
+        root html;
+        limit_rate 500k;
+    }
+}
 ~~~
 
-45, 3.3, and 1.4 seconds favour the virtual threads approach.
+Now when you `curl` that file, it will be v-v-very slow.
+
+The idea behind this trick is to mimic real IO expectation. Without limiting
+throughput, the standard `map` breaks the other two just because network is too
+fast.
+
+Now that the file is slowly served, prepare a function that downloads it to
+nowhere:
+
+~~~clojure
+(def URL "http://127.0.0.1:8080/hugefile.bin")
+
+(defn download [i]
+  (with-open [in ^java.io.InputStream
+              (:body (client/get URL {:as :stream}))
+              out
+              (java.io.OutputStream/nullOutputStream)]
+    (.transferTo in out)))
+~~~
+
+Let's download it 100 times in different ways:
+
+...
+
+The standard `map` function is quite slow because it downloads files one by
+one. If the file size is 6 megabyes and the rate limit is 500 kbs, it will take
+12 secods to fetch it. Therefore, downloading 100 files takes 12 sec * 100 = ...
+
+The `pmap` function behaves better of course as it parallels its jobs. My laptop
+has got 12 CPUs meaning that, theoretically, it can download 14 files
+simultaneously (pmap window size = CPU + 2). 100 files / 14 chunks = ... seconds
+to complete the whole task.
+
+Now, `map` functions powered with virtual threads. As you see, they're not
+limited at all. One soon as one virtual thread emits a blocking IO call, its
+stack trace replaced with another one from a thread that has just recovered from
+blocking IO. In our case, all 100 files get downloaded in parallel, and the
+final time is 12 seconds. It took as longs as to download a single file -- but
+we got 100 files.
 
 ## Links and Resources
 
