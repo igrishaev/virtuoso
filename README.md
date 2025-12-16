@@ -5,6 +5,8 @@
 A small wrapper on top of [virtual threads][virtual-threads] introduced in Java
 21.
 
+TODO
+
 <!-- toc -->
 
 - [About](#about)
@@ -141,7 +143,7 @@ data on chunks. Each chunk of items is served within a dedicated virtual
 executor. The next chunk won't start until the current one is complete. The
 leading `n` parameter determines the chunk size. While working with HTTP calls,
 that's ok to pass 512 or something similar (unless you have a custom `ulimit`
-value set). The function returns a lazy sequence of `deref`-ed values.
+alue set). The function returns a lazy sequence of `deref`-ed values.
 
 ~~~clojure
 (def -result
@@ -262,7 +264,7 @@ The idea behind this trick is to mimic real IO expectation. Without limiting
 throughput, the standard `map` breaks the other two just because network is too
 fast.
 
-Now that the file is slowly served, prepare a function that downloads it to
+Now that the file is slowly served, prepare a function that downloads it into
 nowhere:
 
 ~~~clojure
