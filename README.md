@@ -11,8 +11,9 @@ TODO
 
 - [About](#about)
 - [Installation](#installation)
-- [V2 API (new)](#v2-api-new)
-- [V1 API (old)](#v1-api-old)
+- [V3 API (current)](#v3-api-current)
+- [V2 API (deprecated)](#v2-api-deprecated)
+- [V1 API (deprecated)](#v1-api-deprecated)
 - [Measurements](#measurements)
 - [Links and Resources](#links-and-resources)
 - [License](#license)
