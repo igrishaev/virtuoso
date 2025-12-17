@@ -1,4 +1,4 @@
-(defproject com.github.igrishaev/virtuoso "0.1.2"
+(defproject com.github.igrishaev/virtuoso "0.1.3-SNAPSHOT"
 
   :java-cmd
   ~(System/getenv "JDK21")
