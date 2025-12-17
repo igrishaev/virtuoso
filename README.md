@@ -5,8 +5,6 @@
 A small wrapper on top of [virtual threads][virtual-threads] introduced in Java
 21.
 
-TODO
-
 <!-- toc -->
 
 - [About](#about)
@@ -261,12 +259,12 @@ server {
 
 Now when you `curl` that file, it will be v-v-very slow.
 
-The idea behind this trick is to mimic real IO expectation. Without limiting
-throughput, the standard `map` breaks the other two just because network is too
-fast.
+The idea behind this trick is to mimic **real** IO expectation. Without limiting
+throughput, the standard `map` outperforms both `pmap` and virtual threads just
+because networking is too fast.
 
-Now that the file is slowly served, prepare a function that downloads it into
-nowhere:
+Now that the file is served in a slow manner, prepare a function that downloads
+it into nowhere:
 
 ~~~clojure
 (def URL "http://127.0.0.1:8080/hugefile.bin")
@@ -281,23 +279,70 @@ nowhere:
 
 Let's download it 100 times in different ways:
 
-...
+~~~clojure
+(time
+ (count
+  (map download SEQ)))
+;; Elapsed time: 1102802.057709 msecs
 
-The standard `map` function is quite slow because it downloads files one by
+(time
+ (count
+  (pmap download SEQ)))
+;; Elapsed time: 44213.30375 msecs
+
+(time
+ (count
+  (v3/map download SEQ)))
+;; Elapsed time: 11124.417959 msecs
+
+(time
+ (count
+  (v3/pmap 512 download SEQ)))
+;; Elapsed time: 11090.514792 msecs
+~~~
+
+The standard `map` function lasts forever because it downloads files one by
 one. If the file size is 6 megabyes and the rate limit is 500 kbs, it will take
-12 secods to fetch it. Therefore, downloading 100 files takes 12 sec * 100 = ...
+12 secods to fetch it. Therefore, downloading 100 files takes 12 sec * 100 =
+1200 seconds = 20 minutes.
 
-The `pmap` function behaves better of course as it parallels its jobs. My laptop
-has got 12 CPUs meaning that, theoretically, it can download 14 files
-simultaneously (pmap window size = CPU + 2). 100 files / 14 chunks = ... seconds
-to complete the whole task.
+The `pmap` function behaves better of course as it parallels jobs. My laptop has
+got 12 CPUs meaning that, theoretically, it can download 14 files simultaneously
+(pmap window size = CPU + 2). Above, downloading 100 files takes 44 seconds.
 
-Now, `map` functions powered with virtual threads. As you see, they're not
-limited at all. One soon as one virtual thread emits a blocking IO call, its
-stack trace replaced with another one from a thread that has just recovered from
-blocking IO. In our case, all 100 files get downloaded in parallel, and the
-final time is 12 seconds. It took as longs as to download a single file -- but
-we got 100 files.
+Now, the two `map` functions powered with virtual threads. One soon as one
+virtual thread emits a blocking IO call, its stack trace replaced with a stack
+trace of another thread that has just woken up from blocking IO. In our case,
+all 100 files get downloaded in parallel, and the final time is 12 seconds. It
+took as longs as to download a single file -- but we got 100 files.
+
+A quick example of breaking `ulimit` constrain. 100 (files) is less than 1024
+(default ulimit) so we're not breaking it. Now imagine we'd like to download
+2000 files using virtual thread. This is what will happen:
+
+~~~clojure
+(time
+ (count
+  (v3/map download (range 2000))))
+
+INFO: I/O exception (java.net.SocketException) caught
+  when processing request to {}->http://127.0.0.1:8080: Connection reset
+... org.apache.http.impl.execchain.RetryExec execute
+INFO: Retrying request to {}->http://127.0.0.1:8080
+~~~
+
+Other HTTP clients may fail with "too many open connections" error. The right
+approach would be to use `v/pmap` with a window size:
+
+~~~clojure
+(time
+ (count
+  (v3/pmap 512 download (range 2000))))
+;; Elapsed time: 44684.907583 msecs
+~~~
+
+2000 files in 45 seconds! It means, every second were downloading about 44
+files.
 
 ## Links and Resources
 
