@@ -4,12 +4,10 @@
 - ?
 - ?
 
-
 ## 0.1.2-SNAPSHOT
 
-- ?
-- ?
-- ?
+- add v3 namespace
+- add benchmarks
 
 ## 0.1.1
 
