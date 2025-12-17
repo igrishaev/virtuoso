@@ -316,9 +316,9 @@ trace of another thread that has just woken up from blocking IO. In our case,
 all 100 files get downloaded in parallel, and the final time is 12 seconds. It
 took as longs as to download a single file -- but we got 100 files.
 
-A quick example of breaking `ulimit` constrain. 100 (files) is less than 1024
-(default ulimit) so we're not breaking it. Now imagine we'd like to download
-2000 files using virtual thread. This is what will happen:
+A quick example of breaking `ulimit` constraint. 100 (files) is less than 1024
+(default ulimit) so we're fine. Now imagine we'd like to download 2000 files
+using virtual thread. This is what will happen:
 
 ~~~clojure
 (time
@@ -331,8 +331,9 @@ INFO: I/O exception (java.net.SocketException) caught
 INFO: Retrying request to {}->http://127.0.0.1:8080
 ~~~
 
-Other HTTP clients may fail with "too many open connections" error. The right
-approach would be to use `v/pmap` with a window size:
+Handling 2000 parallel connections is too many. Other HTTP clients may fail with
+"too many open connections" error. The right approach would be to use `v/pmap`
+with a smaller window size:
 
 ~~~clojure
 (time
