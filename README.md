@@ -36,7 +36,7 @@ Lein
 Deps/CLI
 
 ~~~clojure
-{com.github.igrishaev/virtuoso {:mvn/version "0.1.2"}}
+com.github.igrishaev/virtuoso {:mvn/version "0.1.2"}
 ~~~
 
 ## V3 API (current)
